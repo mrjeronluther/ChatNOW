@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>ChatNOW</title>
+  
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+
+  <style>
+    /* VARS */
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --primary: #2f81f7; --me-bg: #1f6feb; --me-text: #fff;
+      --text: #c9d1d9; --muted: #8b949e; --terminal: #00ff9d;
+      --danger: #da3633; --warning: #d29922;
+      --tick-sent: #6e7681; --tick-seen: #4fc3f7;
+    }
+    
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; height: 100dvh; overflow: hidden; }
+
+    [v-cloak] { display: none; }
+
+    /* SCROLL BAR */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* MODALS */
+    .modal-overlay { 
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7); 
+      backdrop-filter: blur(3px); display: flex; justify-content: center; align-items: center; 
+      animation: fadeIn 0.2s;
+    }
+    .modal-box { 
+      background: var(--panel); border: 1px solid var(--border); padding: 25px; 
+      border-radius: 12px; width: 90%; max-width: 420px; text-align: center; 
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes popIn { from{transform:scale(0.9); opacity:0} to{transform:scale(1); opacity:1} }
+    
+    .modal-title { font-size: 18px; margin-bottom: 10px; font-weight: bold; }
+    .modal-msg { color: var(--muted); margin-bottom: 25px; line-height: 1.5; }
+    
+    .modal-btns { display: flex; gap: 10px; justify-content: center; }
+    .btn-modal { padding: 10px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: bold; min-width: 80px; }
+    .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-confirm { background: var(--primary); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+
+    /* --- UPDATED ADMIN UI --- */
+    .admin-header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 15px; margin-bottom: 15px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .admin-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+    
+    .user-card {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #0d1117; border: 1px solid var(--border);
+      padding: 12px; border-radius: 8px; transition: background 0.2s;
+    }
+    .user-card:hover { border-color: var(--muted); }
+    
+    .u-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .u-avatar {
+      width: 36px; height: 36px; border-radius: 50%; 
+      background: #21262d; color: var(--text);
+      display: flex; justify-content: center; align-items: center;
+      font-weight: bold; font-size: 14px; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .u-details { display: flex; flex-direction: column; overflow: hidden; }
+    .u-name { font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u-email { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .u-status { margin-right: 10px; flex-shrink: 0; }
+    .tag { padding: 3px 8px; border-radius: 20px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; border: 1px solid transparent; }
+    .tag-pending { background: rgba(210, 153, 34, 0.15); color: #d29922; border-color: rgba(210, 153, 34, 0.3); }
+    .tag-active { background: rgba(57, 211, 83, 0.15); color: #39d353; border-color: rgba(57, 211, 83, 0.3); }
+    .tag-admin { background: rgba(218, 54, 51, 0.15); color: #da3633; border-color: rgba(218, 54, 51, 0.3); }
+
+    .u-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    
+    .btn-mini {
+      padding: 6px 12px; font-size: 11px; border-radius: 6px; border: none; 
+      font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s; opacity: 0.9;
+    }
+    .btn-mini:hover { opacity: 1; transform: translateY(-1px); }
+    .btn-mini:disabled { opacity: 0.5; cursor: wait; transform: none; }
+    
+    .btn-approve { background: #238636; color: white; }
+    .btn-remove { background: rgba(218, 54, 51, 0.1); color: #da3633; border: 1px solid rgba(218, 54, 51, 0.3); }
+    .btn-remove:hover { background: rgba(218, 54, 51, 0.2); }
+
+    .no-users { padding: 30px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }
+
+    /* AUTH & LAYOUT */
+    #app { display: flex; flex-direction: column; height: 100%; }
+    
+    .auth-view { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
+    .auth-card { background: var(--panel); padding: 30px; border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 380px; text-align: center; }
+    input { width: 100%; background: #010409; border: 1px solid var(--border); padding: 12px; color: var(--text); margin-bottom: 12px; border-radius: 6px; outline: none; }
+    input:focus { border-color: var(--primary); }
+    
+    .btn { 
+      width: 100%; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; border:none; margin-top:5px; transition: opacity 0.2s;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary { background: #238636; color: white; }
+    .auth-link { margin-top:15px; cursor:pointer; font-size:12px; opacity:0.7; text-decoration: underline; }
+
+    /* CHAT LAYOUT */
+    .chat-view { display: flex; flex: 1; height: 100%; position: relative; }
+    aside { width: 260px; background: #010409; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; transition: transform 0.3s; }
+    
+    .mobile-menu-btn { display: none; }
+    @media (max-width: 768px) {
+      aside { position: absolute; height: 100%; left: 0; transform: translateX(-100%); width: 85%; }
+      aside.open { transform: translateX(0); }
+      .mobile-menu-btn { display: block; }
+    }
+    
+    .sb-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+    .member-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .member { display: flex; align-items: center; padding: 8px; gap: 10px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #444; }
+    .dot.online { background: var(--terminal); box-shadow: 0 0 6px var(--terminal); }
+
+    main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; overflow: hidden;}
+    header { padding: 10px 15px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; height: 60px; }
+    
+    .msg-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; position: relative; }
+    
+    /* DATE DIVIDER */
+    .date-divider { display: flex; align-items: center; justify-content: center; width: 100%; margin: 25px 0 15px; opacity: 1; }
+    .date-divider::before, .date-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .date-pill { margin: 0 15px; flex-shrink: 0; font-size: 11px; color: #8b949e; font-weight: bold; background: var(--panel); border: 1px solid var(--border); padding: 4px 14px; border-radius: 12px; }
+
+    /* MSG BUBBLES */
+    .msg { display: flex; flex-direction: column; width: fit-content; max-width: 90%; }
+    .msg.me { align-self: flex-end; align-items: flex-end; }
+    .msg.other { align-self: flex-start; align-items: flex-start; }
+    
+    .msg-row { display: flex; align-items: center; gap: 10px; max-width: 100%; }
+    .msg.me .msg-row { flex-direction: row-reverse; }
+    .msg.other .msg-row { flex-direction: row; }
+
+    .bubble { 
+        padding: 10px 14px; border-radius: 12px; position: relative; 
+        word-wrap: break-word; word-break: break-word; white-space: pre-wrap;
+        line-height: 1.5; font-size: 15px; background: var(--panel); border: 1px solid var(--border); 
+    }
+    .msg.me .bubble { background: var(--me-bg); color: var(--me-text); border: none; border-bottom-right-radius: 2px; }
+    .msg.other .bubble { border-bottom-left-radius: 2px; }
+
+    .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; margin-top: 5px; opacity: 0.8; }
+    .ticks { display: flex; letter-spacing: -4px; margin-left: 3px; color: var(--tick-sent); }
+    .ticks.seen { color: var(--tick-seen); }
+    .fa-check { font-size: 10px; }
+    
+    .msg-sender { font-size:11px; margin-bottom:3px; color:var(--muted); margin-left:2px; }
+
+    /* REPLY ICON */
+    .reply-btn {
+      opacity: 0; color: var(--muted); font-size: 14px; cursor: pointer; transition: all 0.2s;
+      padding: 8px; border-radius: 50%;
+    }
+    .reply-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--primary); }
+    .msg-row:hover .reply-btn { opacity: 1; transform: scale(1.1); }
+    @media (max-width: 768px) {
+      .reply-btn { opacity: 0.5; }
+      .reply-btn:active { opacity: 1; color: var(--primary); }
+    }
+
+    footer { background: var(--panel); border-top: 1px solid var(--border); position: relative; display: flex; flex-direction: column; }
+    .input-area { padding: 10px; display: flex; gap: 10px; align-items: flex-end; }
+    textarea { flex: 1; background: #010409; border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 20px; outline: none; resize: none; font-family: inherit; height: 44px; max-height: 100px; }
+    
+    .btn-icon { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 8px; }
+    emoji-picker { position: absolute; bottom: 80px; left: 10px; z-index: 50; display: none; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }
+    emoji-picker.show { display: flex; }
+
+    .bubble-reply { font-size: 11px; background: rgba(0,0,0,0.2); padding: 5px 8px; border-left: 3px solid var(--terminal); margin-bottom: 5px; cursor: pointer; }
+    .reply-bar { background: #010409; padding: 8px 15px; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); color: var(--muted); }
+    
+    .mention { color: var(--warning); background: rgba(210,153,34,0.15); padding: 1px 4px; border-radius: 3px; font-weight: bold; }
+
+    .profile-section { text-align: left; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+    .profile-section:last-child { border: none; }
+    .lbl { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .ro-val { font-size: 14px; margin-bottom: 10px; color: var(--text); font-weight: bold; }
+    .avatar-lg { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 2px solid var(--border); }
+    
+    .scroll-btn {
+        position: absolute; bottom: 85px; right: 20px;
+        background: var(--panel); border: 1px solid var(--border);
+        width: 40px; height: 40px; border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        cursor: pointer; z-index: 40; opacity: 0.9;
+        transition: all 0.2s;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app" v-cloak>
+  
+  <div v-if="modal.show" class="modal-overlay" style="z-index: 2000;">
+    <div class="modal-box">
+      <div class="modal-title" :style="{color: modal.type === 'error' ? 'var(--danger)' : 'var(--terminal)'}">
+         {{ modal.title }}
+      </div>
+      <div class="modal-msg">{{ modal.message }}</div>
+      <div class="modal-btns">
+         <button v-if="modal.isConfirm" class="btn-modal btn-cancel" @click="closeModal(false)">Cancel</button>
+         <button class="btn-modal" 
+           :class="modal.type === 'error' ? 'btn-danger' : 'btn-confirm'" 
+           @click="closeModal(true)">
+           {{ modal.confirmText || 'OK' }}
+         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL (RE-DESIGNED) -->
+  <div v-if="showAdminPanel" class="modal-overlay" style="z-index: 1000;" @click.self="showAdminPanel=false">
+    <div class="modal-box" style="max-width: 550px; text-align:left; padding:0; overflow:hidden;">
+      
+      <div style="padding: 20px 20px 0;">
+        <div class="admin-header">
+           <div class="modal-title" style="margin:0"><i class="fas fa-users-cog" style="color:var(--terminal)"></i> User Management</div>
+           <i class="fas fa-times btn-icon" style="font-size:16px" @click="showAdminPanel=false"></i>
+        </div>
+      </div>
+
+      <div class="admin-list" style="padding: 0 20px 20px;">
+        
+        <div v-if="adminUserList.length === 0" class="no-users">
+          <i class="fas fa-circle-notch fa-spin" style="margin-bottom:10px; font-size:20px;"></i><br>Fetching users...
+        </div>
+
+        <div v-for="u in adminUserList" :key="u.email" class="user-card">
+          <!-- User Info -->
+          <div class="u-info">
+            <div class="u-avatar">
+              {{ u.username.charAt(0).toUpperCase() }}
+            </div>
+            <div class="u-details">
+              <span class="u-name">{{ u.username }}</span>
+              <span class="u-email">{{ u.email }}</span>
+            </div>
+          </div>
+          
+          <!-- Status -->
+          <div class="u-status">
+            <span class="tag" :class="'tag-'+u.status">{{ u.status }}</span>
+          </div>
+          
+          <!-- Actions -->
+          <div class="u-actions">
+            <!-- Loading State for this specific user -->
+            <div v-if="adminProcessing === u.email" style="padding: 0 10px;">
+               <i class="fas fa-circle-notch fa-spin" style="color:var(--primary)"></i>
+            </div>
+            
+            <template v-else-if="u.status !== 'admin'">
+              <!-- Approve Button (Only if pending) -->
+              <button v-if="u.status === 'pending'" 
+                      class="btn-mini btn-approve" 
+                      title="Approve User" 
+                      @click="adminAction(u.email, 'approve')">
+                <i class="fas fa-check"></i> Approve
+              </button>
+              
+              <!-- Remove Button -->
+              <button class="btn-mini btn-remove" 
+                      title="Remove User" 
+                      @click="adminAction(u.email, 'remove')">
+                <i class="fas fa-trash"></i>
+              </button>
+            </template>
+            
+            <div v-else style="font-size:11px; color:var(--muted); font-style:italic; padding-right:10px;">
+              Owner
+            </div>
+
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+  <!-- END ADMIN PANEL -->
+
+  <div v-if="showProfile" class="modal-overlay" style="z-index: 1000;" @click.self="closeProfile">
+    <div class="modal-box" style="text-align:left; max-width:450px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0; color:var(--terminal)">My Profile</h2>
+        <i class="fas fa-times" style="cursor:pointer" @click="closeProfile"></i>
+      </div>
+
+      <div class="avatar-lg" :style="{backgroundColor: user.color, color: '#000'}">
+        {{ user.username.charAt(0).toUpperCase() }}
+      </div>
+      
+      <div style="overflow-y:auto; max-height:60vh; padding-right:5px;">
+        <div class="profile-section">
+          <span class="lbl">USERNAME</span>
+          <input v-model="pForm.username" placeholder="Display Name" />
+          
+          <div style="display:flex; gap:10px;">
+             <div style="flex:1">
+               <span class="lbl">STATUS</span>
+               <div class="ro-val" style="color:var(--terminal)">{{ user.status.toUpperCase() }}</div>
+             </div>
+             <div style="flex:1">
+               <span class="lbl">JOINED</span>
+               <div class="ro-val">{{ new Date(user.joined).toLocaleDateString() }}</div>
+             </div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <span class="lbl">EMAIL ADDRESS</span>
+          <div v-if="!emailChange.step">
+            <input v-model="user.email" disabled style="opacity:0.7; cursor:not-allowed">
+            <button class="btn btn-cancel" style="font-size:12px; padding:6px;" @click="emailChange.step=1">Change Email</button>
+          </div>
+          <div v-else-if="emailChange.step===1">
+             <input v-model="emailChange.newEmail" placeholder="Enter new email address">
+             <div style="display:flex; gap:5px;">
+               <button class="btn btn-cancel" @click="emailChange.step=0">Cancel</button>
+               <button class="btn btn-primary" @click="reqEmailCode">Send Code</button>
+             </div>
+          </div>
+          <div v-else>
+             <input v-model="emailChange.code" placeholder="Enter 6-digit Code">
+             <button class="btn btn-primary" @click="verifyEmailCode">Verify & Change</button>
+          </div>
+        </div>
+
+        <div class="profile-section" style="border:none">
+          <span class="lbl">CHANGE PASSWORD</span>
+          <input v-model="pForm.oldPass" type="password" placeholder="Current or Temp Password">
+          <input v-model="pForm.newPass" type="password" placeholder="New Password">
+          
+          <button class="btn btn-primary" 
+                  @click="saveProfile" 
+                  :disabled="loading || !hasProfileChanges">
+            {{ loading ? 'SAVING...' : 'SAVE CHANGES' }}
+          </button>
+          
+          <button class="btn btn-danger" style="margin-top:15px;" @click="tryLogout">
+            <i class="fas fa-sign-out-alt"></i> LOGOUT
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="!user" class="auth-view">
+    <div class="auth-card">
+      <h2 style="color:var(--terminal);">Chat<span style="color:#fff">NOW</span></h2>
+      
+      <div v-if="viewMode === 'login'">
+        <input v-model="form.email" placeholder="Email" @keypress.enter="login" />
+        <input v-model="form.pass" type="password" placeholder="Password" @keypress.enter="login" />
+        <button class="btn btn-primary" @click="login" :disabled="loading">
+          {{ loading ? 'AUTHENTICATING...' : 'LOGIN' }}
+        </button>
+        <div class="auth-link" @click="viewMode='register'">Create Account</div>
+        <div class="auth-link" style="color:var(--warning)" @click="viewMode='forgot'">Forgot Password?</div>
+      </div>
+
+      <div v-if="viewMode === 'register'">
+        <input v-model="form.username" placeholder="Username" />
+        <input v-model="form.email" placeholder="Email" />
+        <input v-model="form.pass" type="password" placeholder="Password" />
+        <button class="btn btn-primary" @click="register" :disabled="loading">
+          {{ loading ? 'CREATING...' : 'REGISTER ACCOUNT' }}
+        </button>
+        <div class="auth-link" @click="viewMode='login'">Back to Login</div>
+      </div>
+
+      <div v-if="viewMode === 'forgot'">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:15px;">
+           Enter your registered email. If matched, we will send a temporary password valid for 15 minutes.
+        </div>
+        <input v-model="form.email" placeholder="Email Address" />
+        <button class="btn btn-primary" @click="sendForgot" :disabled="loading">
+          {{ loading ? 'SENDING...' : 'SEND TEMP PASSWORD' }}
+        </button>
+        <div class="auth-link" @click="viewMode='login'">Back to Login</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div v-else class="chat-view">
+    <div v-if="showSidebar" class="modal-overlay" style="z-index:10" @click="showSidebar = false"></div>
+
+    <aside :class="{ open: showSidebar }">
+      <div class="sb-header">
+        <span>MEMBERS</span>
+        <div style="display:flex; gap:10px;">
+           <i v-if="user.role==='admin'" class="fas fa-user-shield btn-icon" title="Admin Panel" @click="openAdminPanel" style="font-size:14px; color:var(--warning)"></i>
+           <i class="fas fa-user-circle btn-icon" style="color:var(--primary)" title="My Profile" @click="openProfile"></i>
+        </div>
+      </div>
+      <div class="member-list">
+        <div v-for="m in sortedMembers" :key="m.email" class="member">
+          <div class="dot" :class="{ online: m.isOnline }"></div>
+          <div>
+             <span :style="{ color: m.role==='admin' ? '#da3633' : 'inherit' }">{{ m.username }}</span>
+             <div style="font-size:10px; color:var(--muted)">{{ getMemberStatus(m) }}</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <button class="btn-icon mobile-menu-btn" style="margin-right:5px;" @click="showSidebar = true"><i class="fas fa-bars"></i></button>
+        <div style="flex:1">
+          <div style="color:var(--terminal);">Chat<span style="color:#fff">NOW</span> </div>
+          <div style="font-size:11px; color:var(--terminal); font-style:italic;">{{ typingText }}</div>
+        </div>
+      </header>
+
+      <transition name="fade">
+        <div v-if="showScrollBtn" class="scroll-btn" @click="forceScrollBottom" title="Scroll to bottom">
+          <i class="fas fa-arrow-down"></i>
+        </div>
+      </transition>
+
+      <div class="msg-container" ref="msgContainer" @scroll="handleScroll">
+        <template v-for="(msg, index) in messages" :key="msg.id">
+
+          <!-- DATE DIVIDER -->
+          <div v-if="shouldShowDate(index)" class="date-divider">
+            <span class="date-pill">{{ formatDateHeader(msg.timestamp) }}</span>
+          </div>
+
+          <div class="msg" :class="msg.senderEmail === user.email ? 'me' : 'other'">
+            
+            <span class="msg-sender" v-if="msg.senderEmail !== user.email">{{ msg.senderName }}</span>
+            
+            <div class="msg-row">
+              <div class="bubble">
+                <div v-if="msg.replyTo" class="bubble-reply">
+                  <span style="color:var(--terminal); font-weight:bold">{{ msg.replyTo.user }}:</span> {{ msg.replyTo.text }}
+                </div>
+                
+                <span v-html="formatMessage(msg.text)"></span>
+                
+                <div class="msg-meta">
+                  {{ new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }}
+                  <span v-if="msg.senderEmail === user.email" class="ticks" :class="{ seen: isMessageRead(msg) }">
+                    <i class="fas fa-check"></i>
+                    <i class="fas fa-check" style="margin-left:-2px"></i>
+                  </span>
+                </div>
+              </div>
+
+              <!-- REPLY BUTTON -->
+              <i class="fas fa-reply reply-btn" @click="initReply(msg)" title="Reply to this message"></i>
+            </div>
+
+          </div>
+        </template>
+      </div>
+
+      <footer>
+        <div v-if="replyTarget" class="reply-bar">
+           <span>Replying to <b>{{ replyTarget.senderName }}</b></span>
+           <i class="fas fa-times" style="cursor:pointer" @click="replyTarget=null"></i>
+        </div>
+        
+        <emoji-picker :class="{ show: showEmoji }" @emoji-click="addEmoji"></emoji-picker>
+        
+        <div class="input-area">
+           <button class="btn-icon" @click="toggleEmoji"><i class="far fa-smile"></i></button>
+           <textarea v-model="newMessage" placeholder="Message..." @input="handleTyping" @keypress.enter.prevent="sendMessage"></textarea>
+           <button class="btn-icon" style="color:var(--primary)" @click="sendMessage"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  const { createApp } = Vue;
+
+  createApp({
+    data() {
+      return {
+        user: JSON.parse(localStorage.getItem('dt_user')) || null,
+        viewMode: 'login', // 'login' | 'register' | 'forgot'
+        loading: false,
+        form: { email: '', pass: '', username: '' },
+        messages: [],
+        members: [],
+        newMessage: '',
+        replyTarget: null,
+        showSidebar: false,
+        showEmoji: false,
+        polling: null,
+        typingTimeout: null,
+        typingState: false,
+        
+        // Scroll Logic
+        isNearBottom: true,
+        showScrollBtn: false,
+
+        // Profile State
+        showProfile: false,
+        pForm: { username: '', oldPass: '', newPass: '' },
+        emailChange: { step: 0, newEmail: '', code: '' },
+
+        // Modals & Admin
+        modal: { show: false, title: '', message: '', type: 'info', isConfirm: false, confirmText: 'OK', callback: null },
+        showAdminPanel: false,
+        adminUserList: [],
+        adminProcessing: null, // Tracks which email is currently being acted upon (loading state)
+      }
+    },
+    computed: {
+      sortedMembers() { return [...this.members].sort((a,b) => (b.isOnline - a.isOnline)); },
+      
+      hasProfileChanges() {
+        const nameChanged = this.pForm.username.trim() !== this.user.username;
+        const passChanged = this.pForm.newPass.length > 0;
+        return nameChanged || passChanged;
+      },
+
+      typingText() {
+        const typers = this.members.filter(m => m.isTyping && m.email !== this.user.email);
+        if(typers.length === 0) return '';
+        const picker = typers.find(m => m.isTyping === 'emoji');
+        return picker ? `${picker.username} is picking an emoji...` : `${typers[0].username} is typing...`;
+      }
+    },
+    watch: {
+      messages: { 
+        handler() { 
+          if(this.isNearBottom) { this.scrollToBottom(true); }
+        }, 
+        deep: true 
+      }
+    },
+    mounted() { 
+      if(this.user) {
+        this.startSync(); 
+        setTimeout(() => this.forceScrollBottom(), 500);
+      }
+    },
+    methods: {
+      shouldShowDate(index) {
+        if(index === 0) return true;
+        const currentMs = this.messages[index].timestamp;
+        const prevMs = this.messages[index-1].timestamp;
+        return new Date(currentMs).toDateString() !== new Date(prevMs).toDateString(); 
+      },
+
+      formatDateHeader(timestamp) {
+        const date = new Date(timestamp);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (date.toDateString() === today.toDateString()) return 'Today';
+        if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return date.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+      },
+
+      handleScroll() {
+        const el = this.$refs.msgContainer;
+        if (!el) return;
+        const isBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 50);
+        this.isNearBottom = isBottom;
+        this.showScrollBtn = !isBottom;
+      },
+      forceScrollBottom() { 
+        this.isNearBottom = true; 
+        this.scrollToBottom(true); 
+      },
+      scrollToBottom(force = false) { 
+        this.$nextTick(() => { 
+          const c = this.$refs.msgContainer; 
+          if(c) {
+             c.style.scrollBehavior = force ? 'smooth' : 'auto';
+             c.scrollTop = c.scrollHeight;
+             if(force) setTimeout(() => { c.style.scrollBehavior = 'auto'; }, 500);
+          }
+        }); 
+      },
+
+      timeAgo(timestamp) {
+        if (!timestamp) return '';
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        if (seconds < 60) return 'Just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+        const days = Math.floor(hours / 24);
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+      },
+
+      getMemberStatus(m) {
+         if (m.isOnline) return m.isTyping ? 'Typing...' : 'ONLINE';
+         if (m.lastSeen) return 'Active ' + this.timeAgo(m.lastSeen);
+         return 'OFFLINE';
+      },
+
+      showModal(title, message, type='info') {
+        this.modal = { show: true, title, message, type, isConfirm: false, confirmText: 'OK' };
+      },
+      confirmAction(title, message, confirmText, type, callback) {
+        this.modal = { show: true, title, message, type, isConfirm: true, confirmText, callback };
+      },
+      closeModal(isConfirmed) {
+        this.modal.show = false;
+        if(isConfirmed && this.modal.callback) this.modal.callback();
+      },
+
+      /* === AUTH === */
+      login() {
+        this.loading = true;
+        google.script.run.withSuccessHandler(res => {
+          this.loading = false;
+          if(res.success) { 
+             this.user = res.user; 
+             localStorage.setItem('dt_user', JSON.stringify(this.user)); 
+             this.startSync(); 
+             this.forceScrollBottom();
+             if(res.isTemp) {
+               this.showModal("Warning", "You are using a temporary password. Please update your password in Profile immediately.", "warning");
+               this.openProfile();
+             }
+          } else {
+             this.showModal("Login Failed", res.error, 'error');
+          }
+        }).withFailureHandler(() => this.loading = false).apiLogin(this.form.email, this.form.pass);
+      },
+      register() {
+        this.loading = true;
+        google.script.run.withSuccessHandler(res => {
+          this.loading = false;
+          if(res.success) { 
+            this.showModal("Success", res.message, 'success');
+            this.viewMode = 'login'; 
+          } else {
+            this.showModal("Error", res.error, 'error');
+          }
+        }).apiRegister(this.form.email, this.form.username, this.form.pass);
+      },
+      sendForgot() {
+        if(!this.form.email) return;
+        this.loading = true;
+        google.script.run.withSuccessHandler(res => {
+            this.loading = false;
+            if(res.success) {
+                this.showModal("Email Sent", res.message);
+                this.viewMode = 'login';
+            } else {
+                this.showModal("Error", res.error, 'error');
+            }
+        }).apiForgotPassword(this.form.email);
+      },
+      tryLogout() {
+        this.confirmAction("Logout?", "Are you sure you want to exit?", "Logout", "logout", this.doLogout);
+      },
+      doLogout() {
+        if(this.polling) clearInterval(this.polling);
+        localStorage.removeItem('dt_user');
+        this.user = null;
+        this.messages = [];
+        this.form.email = ''; this.form.pass = '';
+        this.showProfile = false;
+        this.viewMode = 'login';
+      },
+
+      /* === PROFILE === */
+      openProfile() {
+        this.showProfile = true;
+        this.showSidebar = false;
+        this.pForm = { username: this.user.username, oldPass: '', newPass: '' };
+        this.emailChange = { step: 0, newEmail: '', code: '' };
+      },
+      closeProfile() { this.showProfile = false; },
+      saveProfile() {
+        this.loading = true;
+        google.script.run.withSuccessHandler(res => {
+           this.loading = false;
+           if(res.success) {
+              this.user = res.user;
+              localStorage.setItem('dt_user', JSON.stringify(this.user));
+              this.showModal("Success", "Profile Updated");
+              this.pForm.oldPass = ''; this.pForm.newPass = '';
+           } else {
+              this.showModal("Error", res.error, 'error');
+           }
+        }).apiUpdateProfile(this.user.email, this.pForm.username, this.pForm.oldPass, this.pForm.newPass);
+      },
+      reqEmailCode() {
+         if(!this.emailChange.newEmail) return;
+         google.script.run.withSuccessHandler(res => {
+            if(res.success) this.emailChange.step = 2;
+            else this.showModal("Error", res.error, 'error');
+         }).apiSendEmailCode(this.user.email, this.emailChange.newEmail);
+      },
+      verifyEmailCode() {
+         google.script.run.withSuccessHandler(res => {
+            if(res.success) {
+                this.user = res.user;
+                localStorage.setItem('dt_user', JSON.stringify(this.user));
+                this.showModal("Success", "Email Changed Successfully");
+                this.emailChange.step = 0;
+            } else {
+                this.showModal("Error", res.error, 'error');
+            }
+         }).apiVerifyEmailChange(this.user.email, this.emailChange.code);
+      },
+
+      /* === CHAT === */
+      sendMessage() {
+        const text = this.newMessage.trim();
+        if(!text) return;
+        const tempMsg = {
+           id: 'temp-' + Date.now(),
+           senderName: this.user.username,
+           senderEmail: this.user.email,
+           text: text,
+           replyTo: this.replyTarget ? { user: this.replyTarget.senderName, text: this.replyTarget.text } : null,
+           timestamp: Date.now()
+        };
+        this.messages.push(tempMsg);
+        this.newMessage = '';
+        const rp = this.replyTarget ? { user: this.replyTarget.senderName, text: this.replyTarget.text } : null;
+        this.replyTarget = null;
+        this.showEmoji = false;
+        this.forceScrollBottom();
+        
+        google.script.run.apiSendMessage(this.user.email, text, rp);
+      },
+
+      startSync() {
+        this.syncData();
+        this.polling = setInterval(() => this.syncData(), 2500);
+      },
+      syncData() {
+        if(!this.user) return;
+        google.script.run.withSuccessHandler(res => {
+          if(!res) return;
+          const serverMsgs = res.messages || [];
+          this.members = res.members;
+          
+          const temps = this.messages.filter(m => m.id.toString().startsWith('temp-'));
+          const pending = temps.filter(t => !serverMsgs.some(s => 
+             s.senderEmail === t.senderEmail && s.text === t.text && Math.abs(s.timestamp - t.timestamp) < 15000
+          ));
+          
+          this.messages = [...serverMsgs, ...pending];
+        }).apiSync(this.user.email, this.typingState);
+      },
+
+      isMessageRead(msg) {
+         const others = this.members.filter(m => m.email !== this.user.email);
+         if(others.length === 0) return false;
+         return others.some(m => m.lastSeen > (msg.timestamp + 3000));
+      },
+      handleTyping() { this.updateStatus('text'); },
+      toggleEmoji() { this.showEmoji = !this.showEmoji; this.updateStatus(this.showEmoji ? 'emoji' : false); },
+      updateStatus(st) {
+        this.typingState = st;
+        if(this.typingTimeout) clearTimeout(this.typingTimeout);
+        this.typingTimeout = setTimeout(() => { this.typingState = false; }, 2000);
+      },
+      initReply(msg) { this.replyTarget = msg; this.$nextTick(()=>document.querySelector('textarea').focus()); },
+      
+      addEmoji(e) { this.newMessage += e.detail.unicode; this.handleTyping(); },
+
+      formatMessage(text) {
+        const tempDiv = document.createElement('div');
+        tempDiv.textContent = text; 
+        let safe = tempDiv.innerHTML;
+        safe = safe.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+        const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+        safe = safe.replace(urlRegex, function(url) {
+            return `<a href="${url}" target="_blank" style="color:var(--primary); text-decoration:underline;">${url}</a>`;
+        });
+        return safe;
+      },
+      
+      /* === ADMIN ACTIONS === */
+      openAdminPanel() {
+        this.showAdminPanel = true;
+        this.adminUserList = [];
+        this.adminProcessing = null;
+        google.script.run.withSuccessHandler(res => {
+           if(res.success) this.adminUserList = res.users;
+        }).apiAdminGetUsers(this.user.email);
+      },
+      adminAction(targetEmail, action) {
+        if(this.adminProcessing) return; // prevent double clicks
+        
+        this.adminProcessing = targetEmail; // SET LOADING STATE
+
+        google.script.run.withSuccessHandler(res => {
+           this.adminProcessing = null; // CLEAR LOADING STATE
+           if(res.success) {
+             if(action === 'remove') this.adminUserList = this.adminUserList.filter(u => u.email !== targetEmail);
+             if(action === 'approve') {
+                const u = this.adminUserList.find(x => x.email === targetEmail);
+                if(u) u.status = 'active';
+             }
+           } else {
+             this.showModal("Error", res.error || 'Action failed', 'error');
+           }
+        }).withFailureHandler(() => {
+           this.adminProcessing = null;
+           this.showModal("Error", "Server error occurred", 'error');
+        }).apiAdminAction(this.user.email, targetEmail, action);
+      }
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
