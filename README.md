@@ -1,6 +1,6 @@
 # 💬 IntraTALKS
 
-**IntraTALKS** is a professional-grade, internal chat application built on the **Google Apps Script (GAS)** ecosystem. It combines a modern **Vue.js 3** frontend with a high-performance, encrypted JSON database architecture stored directly in your Google Drive.
+**IntraTALKS** is a professional-grade, internal chat application built on the **Google Apps Script (GAS)** ecosystem. It combines a modern **Vue.js 3** frontend with a high-performance, encrypted JSON database architecture stored directly in Google Drive.
 
 Features include real-time sync, **AI-powered summaries** via Google Gemini, and robust administrative controls.
 
@@ -92,15 +92,3 @@ The `code.gs` file contains special maintenance functions you can run manually f
 - `exportUnencryptedDatabases()`: Creates a readable, plain-text backup of your chat and users in your Drive folder.
 - `developer_clearCache()`: Force-clears the RAM cache (useful if you manually edit the JSON files).
 - `forceSyncAllNicknames()`: Updates all past messages to match current usernames if a user changes their profile name.
-
----
-
-## 📜 License
-MIT License - Feel free to modify and use for your internal teams.
-```
-
-### Pro-Tips for this README:
-1.  **Syntax Highlighting:** I used ` ```javascript ` and ` ```text ` to ensure the code snippets are color-coded correctly.
-2.  **Collapsible Details:** The `<details>` tags prevent the README from becoming a "wall of text." Users only see the setup steps they need.
-3.  **Table Formatting:** The tech stack table uses standard GFM pipes (`|`) which render perfectly on GitHub, GitLab, and Bitbucket.
-4.  **No Indentation Traps:** Markdown lists are sensitive to spaces. This version uses standard 2-space indentation to ensure bullets don't break.
